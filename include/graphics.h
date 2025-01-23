@@ -1,5 +1,5 @@
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef GRAPHICS_H
+#define GRAPHICS_H
 
 #define SPRITE_ADDR(sprite) (5 * (sprite))
 

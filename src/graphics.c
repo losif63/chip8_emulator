@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "graphics.h"
 
 void setup_graphics(char* memory)
 {

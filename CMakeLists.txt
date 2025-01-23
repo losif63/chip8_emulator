@@ -11,7 +11,7 @@ add_subdirectory(lib/SDL EXCLUDE_FROM_ALL)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Create your game executable target as usual
-add_executable(chip8 src/main.c src/utils.c)
+add_executable(chip8 src/main.c src/graphics.c)
 
 # Link to the actual SDL3 library.
 target_link_libraries(chip8 PRIVATE SDL3::SDL3)
