@@ -1,0 +1,4 @@
+roms/**
+lib/**
+build/**
+.DS_Store
