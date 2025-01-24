@@ -9,6 +9,40 @@
 #define CHIP8_WIDTH 64
 #define CHIP8_HEIGHT 32
 
+int get_pixel(int x, int y, char* display)
+{
+    int index = y * CHIP8_WIDTH + x;
+    int shift = 7 - index % 8;
+    return display[index / 8] & (1 << shift);
+}
+
+void set_pixel(int x, int y, char* display, int val)
+{
+    int index = y * CHIP8_WIDTH + x;
+    int shift = 7 - index % 8;
+    if (val) display[index / 8] |= (1 << shift);
+    else display[index / 8] &= ~(1 << shift);
+    return;
+}
+
+void debug_display(char* display)
+{
+    for (int y = 0; y < CHIP8_HEIGHT; y++) {
+        for (int x = 0; x < CHIP8_WIDTH; x++) {
+            int index = y * CHIP8_WIDTH + x;
+            printf("%d ", display[index / 8] & (1 << 7));
+            printf("%d ", display[index / 8] & (1 << 6));
+            printf("%d ", display[index / 8] & (1 << 5));
+            printf("%d ", display[index / 8] & (1 << 4));
+            printf("%d ", display[index / 8] & (1 << 3));
+            printf("%d ", display[index / 8] & (1 << 2));
+            printf("%d ", display[index / 8] & (1 << 1));
+            printf("%d ", display[index / 8] & (1 << 0));
+        }
+        printf("\n");
+    }
+}
+
 int main(int argc, char** argv)
 {
     SDL_Window* window;
@@ -22,8 +56,8 @@ int main(int argc, char** argv)
     short int* stack = (short int*)malloc(16 * sizeof(short int));
 
     /* Display */
-    char* display = (char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 64);
-    memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 64);
+    char* display = (char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 8);
+    memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
 
     setup_graphics(memory);
 
@@ -41,7 +75,6 @@ int main(int argc, char** argv)
 
     /* Create renderer */
     SDL_Renderer* renderer = SDL_CreateRenderer(window, "opengl");
-
 
     /* Create bitmap texture for chip-8 */
     SDL_Texture* texture_on = SDL_CreateTexture(
@@ -81,13 +114,14 @@ int main(int argc, char** argv)
         SDL_RenderClear(renderer);
         for(int y = 0; y < CHIP8_HEIGHT; y++) {
             for(int x = 0; x < CHIP8_WIDTH; x++) {
+                SDL_Texture* texture = get_pixel(x, y, display) ? texture_on : texture_off;
                 SDL_FRect frect = {x * 10, y * 10, 10, 10};
-                if (key % 2 == 0) SDL_RenderTexture(renderer, texture_on, NULL, &frect);
-                else SDL_RenderTexture(renderer, texture_off, NULL, &frect);
+                SDL_RenderTexture(renderer, texture, NULL, &frect);
             }
         }
-        SDL_RenderPresent(renderer);
+        set_pixel(10, 10, display, key % 2);
         key += 1;
+        SDL_RenderPresent(renderer);
         SDL_Delay(50);
     }
 
