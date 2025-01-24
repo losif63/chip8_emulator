@@ -9,14 +9,6 @@
 #define CHIP8_WIDTH 64
 #define CHIP8_HEIGHT 32
 
-/* Function for converting display bitmap into greyscale buffer */
-void display_to_buffer(char* display, uint32_t* display_buffer) {
-    memset(display_buffer, 0, CHIP8_WIDTH * CHIP8_HEIGHT * sizeof(uint32_t));
-    for (int i = 0; i < CHIP8_WIDTH * CHIP8_HEIGHT; i++) {
-        display_buffer[i] = display[i / 8] & (1 << (i % 8)) ? 0xFFFFFFFF : 0x00000000;
-    }
-}
-
 int main(int argc, char** argv)
 {
     SDL_Window* window;
@@ -31,9 +23,7 @@ int main(int argc, char** argv)
 
     /* Display */
     char* display = (char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 64);
-    uint32_t* display_buffer = (uint32_t*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT * sizeof(uint32_t));
     memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 64);
-    memset(display_buffer, 0, CHIP8_WIDTH * CHIP8_HEIGHT * sizeof(uint32_t));
 
     setup_graphics(memory);
 
@@ -52,33 +42,58 @@ int main(int argc, char** argv)
     /* Create renderer */
     SDL_Renderer* renderer = SDL_CreateRenderer(window, "opengl");
 
+
     /* Create bitmap texture for chip-8 */
-    SDL_Texture* texture = SDL_CreateTexture(
+    SDL_Texture* texture_on = SDL_CreateTexture(
         renderer, 
         SDL_PIXELFORMAT_RGBA32, 
-        SDL_TEXTUREACCESS_STREAMING, 
-        CHIP8_WIDTH, 
-        CHIP8_HEIGHT
+        SDL_TEXTUREACCESS_STATIC, 
+        10, 
+        10
     );
 
+    SDL_Texture* texture_off = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_RGBA32,
+        SDL_TEXTUREACCESS_STATIC,
+        10,
+        10
+    );
+
+    void* on_buffer = malloc(100 * sizeof(uint32_t));
+    void* off_buffer = malloc(100 * sizeof(uint32_t));
+    memset(on_buffer, 0xFF, 100 * sizeof(uint32_t));
+    memset(off_buffer, 0x00, 100 * sizeof(uint32_t));
+
+    SDL_UpdateTexture(texture_on, NULL, on_buffer, 10 * sizeof(uint32_t));
+    SDL_UpdateTexture(texture_off, NULL, off_buffer, 10 * sizeof(uint32_t));
+
     /* Main loop */
+    SDL_Event event;
+    int key = 0;
     while(1) {
-        SDL_Event event;
         if(SDL_PollEvent(&event)) {
             if(event.type == SDL_EVENT_QUIT) {
                 break;
             }
         }
-        display_to_buffer(display, display_buffer);
-        SDL_UpdateTexture(texture, NULL, display_buffer, CHIP8_WIDTH * CHIP8_HEIGHT * sizeof(uint32_t));
-        SDL_RenderTexture(renderer, texture, NULL, NULL);
+
+        SDL_RenderClear(renderer);
+        for(int y = 0; y < CHIP8_HEIGHT; y++) {
+            for(int x = 0; x < CHIP8_WIDTH; x++) {
+                SDL_FRect frect = {x * 10, y * 10, 10, 10};
+                if (key % 2 == 0) SDL_RenderTexture(renderer, texture_on, NULL, &frect);
+                else SDL_RenderTexture(renderer, texture_off, NULL, &frect);
+            }
+        }
         SDL_RenderPresent(renderer);
-        display[0] = ~display[0];
-        SDL_Delay(200);
+        key += 1;
+        SDL_Delay(50);
     }
 
     /* Destroy window */
-    SDL_DestroyTexture(texture);
+    SDL_DestroyTexture(texture_on);
+    SDL_DestroyTexture(texture_off);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
