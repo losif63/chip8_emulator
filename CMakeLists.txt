@@ -1,17 +1,18 @@
 cmake_minimum_required(VERSION 3.16)
-project(chip8_emulator)
+project(chip8)
 
-# set the output directory for built objects.
-# This makes sure that the dynamic library goes into the build directory automatically.
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+set(EXECUTABLE_NAME ${PROJECT_NAME})
 
-# This assumes the SDL source is available in vendored/SDL
-add_subdirectory(lib/SDL EXCLUDE_FROM_ALL)
-include_directories(${CMAKE_SOURCE_DIR}/include)
+# Add SDL Library
+# This add_subdirectory command builds the SDL library according to CMakeLists.txt in the SDL source code
+# According to the that CMakeLists.txt, the SDL library is built as a library named SDL3::SDL3
+add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
-# Create your game executable target as usual
-add_executable(chip8 src/main.c src/graphics.c)
+# Add the executable
+add_executable(${EXECUTABLE_NAME} src/main.c src/graphics.c)
 
-# Link to the actual SDL3 library.
-target_link_libraries(chip8 PRIVATE SDL3::SDL3)
+# Include the header files
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
+
+# Link the SDL library
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE SDL3::SDL3)

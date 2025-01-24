@@ -1,4 +1,5 @@
 #include "graphics.h"
+#include "SDL3/SDL.h"
 
 void setup_graphics(char* memory)
 {
