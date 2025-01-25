@@ -10,7 +10,13 @@
 #include "graphics.h"
 
 /* TODO: Need to use memory and stack in this function */
-void handle_instruction(unsigned short instruction, chip8_register* reg, unsigned char* display)
+void handle_instruction(
+    unsigned short instruction,
+    char* memory,
+    chip8_register* registers,
+    unsigned short* stack, 
+    unsigned char* display
+)
 {
     unsigned short digit1 = (instruction & 0xF000) >> 12;
     unsigned short digit2 = (instruction & 0x0F00) >> 8;
@@ -22,39 +28,123 @@ void handle_instruction(unsigned short instruction, chip8_register* reg, unsigne
                 memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
             /* TODO: This implementation is wrong */
             else if(instruction == 0x00EE)
-                reg->PC = (unsigned short)reg->SP--;
+                registers->PC = stack[registers->SP--];
             else {
                 fprintf(stderr, "Error while decoding: Case 0 / Instruction: 0x%04x", instruction);
+                abort();
             }
             break;
         case 0x01:
-            reg->PC = instruction & 0x0FFF;
+            registers->PC = instruction & 0x0FFF;
             break;
         case 0x02:
-
+            stack[++registers->SP] = registers->PC;
+            registers->PC = instruction & 0x0FFF;
             break;
         case 0x03:
+            if(registers->V[(instruction & 0x0F00) >> 8] == (instruction & 0x00FF))
+                registers->PC += 2;
             break;
         case 0x04:
+            if(registers->V[(instruction & 0x0F00) >> 8] != (instruction & 0x00FF))
+                registers->PC += 2;
             break;
         case 0x05:
+            if ((instruction & 0x000F) > 0) {
+                fprintf(stderr, "Error while decoding: Case 5 / Instruction: 0x%04x", instruction);
+                abort();
+            }
+            if(registers->V[(instruction & 0x0F00) >> 8] != registers->V[(instruction & 0x00F0) >> 4])
+                registers->PC += 2;
             break;
         case 0x06:
+            registers->V[(instruction & 0x0F00) >> 8] = (char)(instruction & 0x00FF);
             break;
         case 0x07:
+            registers->V[(instruction & 0x0F00) >> 8] += (char)(instruction & 0x00FF);
             break;
-        case 0x08:
+        case 0x08: {
+            uint16_t x = (instruction & 0x0F00) >> 8;
+            uint16_t y = (instruction & 0x00F0) >> 4;
+            switch(instruction & 0x000F) {
+                case 0x00:
+                    registers->V[x] = registers->V[y];
+                    break;
+                case 0x01:
+                    registers->V[x] = registers->V[x] | registers->V[y];
+                    break;
+                case 0x02:
+                    registers->V[x] = registers->V[x] & registers->V[y];
+                    break;
+                case 0x03:
+                    registers->V[x] = registers->V[x] ^ registers->V[y];
+                    break;
+                case 0x04: {
+                    unsigned short sum = registers->V[x] + registers->V[y];
+                    registers->V[0xF] = (sum > 0xFF) ? 1 : 0;
+                    registers->V[x] = (char)sum;
+                    break;
+                }
+                case 0x05:
+                    registers->V[0xF] = (registers->V[x] > registers->V[y]) ? 1 : 0;
+                    registers->V[x] = registers->V[x] - registers->V[y];
+                    break;
+                case 0x06:
+                    registers->V[0xF] = registers->V[x] & 0x01;
+                    registers->V[x] >>= 1;
+                    break;
+                case 0x07:
+                    registers->V[0xF] = (registers->V[y] > registers->V[x]) ? 1 : 0;
+                    registers->V[x] = registers->V[y] - registers->V[x];
+                    break;
+                case 0x0E:
+                    registers->V[0xF] = (registers->V[x] & 0x80) >> 7;
+                    registers->V[x] <<= 1;
+                    break;
+            }
             break;
-        case 0x09:
+        }
+        case 0x09: {
+            if((instruction & 0x000F) > 0) {
+                fprintf(stderr, "Error while decoding: Case 9 / Instruction: 0x%04x", instruction);
+                abort();
+            }
+            unsigned short x = (instruction & 0x0F00) >> 8;
+            unsigned short y = (instruction & 0x00F0) >> 4;
+            if(registers->V[x] != registers->V[y])
+                registers->PC += 2;
             break;
+        }
         case 0x0A:
+            registers->I = instruction & 0x0FFF;
             break;
         case 0x0B:
+            registers->PC = (instruction & 0x0FFF) + registers->V[0];
             break;
-        case 0x0C:
+        case 0x0C: {
+            unsigned short x = (instruction & 0x0F00) >> 8;
+            registers->V[x] = (char)(rand() % 256) & (instruction & 0x00FF);
             break;
-        case 0x0D:
+        }
+        case 0x0D: {
+            unsigned short x = (instruction & 0x0F00) >> 8;
+            unsigned short y = (instruction & 0x00F0) >> 4;
+            unsigned short n = (instruction & 0x000F);
+            registers->V[0xF] = 0;      // Reset collision flag
+            for (int i = 0; i < n; i++) {
+                unsigned char cursor = memory[registers->I + i];
+                for (int j = 0; j < 8; j++) {
+                    int pixel_x = (registers->V[x] + j) % CHIP8_WIDTH;
+                    int pixel_y = (registers->V[y] + i) % CHIP8_HEIGHT;
+                    int sprite_pixel = (cursor >> (7 - j)) & 1;
+                    int display_pixel = get_pixel(pixel_x, pixel_y, display);
+                    if (sprite_pixel && display_pixel)
+                        registers->V[0xF] = 1;
+                    set_pixel(pixel_x, pixel_y, display, display_pixel ^ sprite_pixel);
+                }
+            }
             break;
+        }
         case 0x0E:
             break;
         case 0x0F:
@@ -72,7 +162,7 @@ int main(int argc, char** argv)
     /* Configure chip-8 components */
     char* memory = (char*)malloc(4096);
     chip8_register* registers = (chip8_register*)malloc(sizeof(chip8_register));
-    short int* stack = (short int*)malloc(16 * sizeof(short int));
+    unsigned short* stack = (unsigned short*)malloc(16 * sizeof(unsigned short));
 
     /* Display */
     unsigned char* display = (unsigned char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 8);
