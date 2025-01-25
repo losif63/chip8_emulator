@@ -101,7 +101,41 @@ void setup_graphics(char* memory)
     *(memory + SPRITE_ADDR(15) + 4) = 0x80;         /* 10000000 */
 }
 
+int get_pixel(int x, int y, unsigned char* display)
+{
+    int index = y * CHIP8_WIDTH + x;
+    int shift = 7 - index % 8;
+    return display[index / 8] & (1 << shift);
+}
+
+void set_pixel(int x, int y, unsigned char* display, int val)
+{
+    int index = y * CHIP8_WIDTH + x;
+    int shift = 7 - index % 8;
+    if (val) display[index / 8] |= (1 << shift);
+    else display[index / 8] &= ~(1 << shift);
+    return;
+}
+
 void draw_display(int* display, const int display_width, const int display_height)
 {
     return;
+}
+
+void debug_display(unsigned char* display)
+{
+    for (int y = 0; y < CHIP8_HEIGHT; y++) {
+        for (int x = 0; x < CHIP8_WIDTH; x++) {
+            int index = y * CHIP8_WIDTH + x;
+            printf("%d ", display[index / 8] & (1 << 7));
+            printf("%d ", display[index / 8] & (1 << 6));
+            printf("%d ", display[index / 8] & (1 << 5));
+            printf("%d ", display[index / 8] & (1 << 4));
+            printf("%d ", display[index / 8] & (1 << 3));
+            printf("%d ", display[index / 8] & (1 << 2));
+            printf("%d ", display[index / 8] & (1 << 1));
+            printf("%d ", display[index / 8] & (1 << 0));
+        }
+        printf("\n");
+    }
 }

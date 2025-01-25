@@ -1,45 +1,64 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
 #include "register.h"
 #include "graphics.h"
 
-#define CHIP8_WIDTH 64
-#define CHIP8_HEIGHT 32
-
-int get_pixel(int x, int y, char* display)
+/* TODO: Need to use memory and stack in this function */
+void handle_instruction(unsigned short instruction, chip8_register* reg, unsigned char* display)
 {
-    int index = y * CHIP8_WIDTH + x;
-    int shift = 7 - index % 8;
-    return display[index / 8] & (1 << shift);
-}
+    unsigned short digit1 = (instruction & 0xF000) >> 12;
+    unsigned short digit2 = (instruction & 0x0F00) >> 8;
+    unsigned short digit3 = (instruction & 0x00F0) >> 4;
+    unsigned short digit4 = (instruction & 0x000F);
+    switch(digit1) {
+        case 0x00:
+            if(instruction == 0x00E0) 
+                memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
+            /* TODO: This implementation is wrong */
+            else if(instruction == 0x00EE)
+                reg->PC = (unsigned short)reg->SP--;
+            else {
+                fprintf(stderr, "Error while decoding: Case 0 / Instruction: 0x%04x", instruction);
+            }
+            break;
+        case 0x01:
+            reg->PC = instruction & 0x0FFF;
+            break;
+        case 0x02:
 
-void set_pixel(int x, int y, char* display, int val)
-{
-    int index = y * CHIP8_WIDTH + x;
-    int shift = 7 - index % 8;
-    if (val) display[index / 8] |= (1 << shift);
-    else display[index / 8] &= ~(1 << shift);
-    return;
-}
-
-void debug_display(char* display)
-{
-    for (int y = 0; y < CHIP8_HEIGHT; y++) {
-        for (int x = 0; x < CHIP8_WIDTH; x++) {
-            int index = y * CHIP8_WIDTH + x;
-            printf("%d ", display[index / 8] & (1 << 7));
-            printf("%d ", display[index / 8] & (1 << 6));
-            printf("%d ", display[index / 8] & (1 << 5));
-            printf("%d ", display[index / 8] & (1 << 4));
-            printf("%d ", display[index / 8] & (1 << 3));
-            printf("%d ", display[index / 8] & (1 << 2));
-            printf("%d ", display[index / 8] & (1 << 1));
-            printf("%d ", display[index / 8] & (1 << 0));
-        }
-        printf("\n");
+            break;
+        case 0x03:
+            break;
+        case 0x04:
+            break;
+        case 0x05:
+            break;
+        case 0x06:
+            break;
+        case 0x07:
+            break;
+        case 0x08:
+            break;
+        case 0x09:
+            break;
+        case 0x0A:
+            break;
+        case 0x0B:
+            break;
+        case 0x0C:
+            break;
+        case 0x0D:
+            break;
+        case 0x0E:
+            break;
+        case 0x0F:
+            break;
     }
 }
 
@@ -52,11 +71,11 @@ int main(int argc, char** argv)
 
     /* Configure chip-8 components */
     char* memory = (char*)malloc(4096);
-    register_t* registers = (register_t*)malloc(sizeof(register_t));
+    chip8_register* registers = (chip8_register*)malloc(sizeof(chip8_register));
     short int* stack = (short int*)malloc(16 * sizeof(short int));
 
     /* Display */
-    char* display = (char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 8);
+    unsigned char* display = (unsigned char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 8);
     memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
 
     setup_graphics(memory);
@@ -101,29 +120,45 @@ int main(int argc, char** argv)
     SDL_UpdateTexture(texture_on, NULL, on_buffer, 10 * sizeof(uint32_t));
     SDL_UpdateTexture(texture_off, NULL, off_buffer, 10 * sizeof(uint32_t));
 
-    /* Main loop */
-    SDL_Event event;
-    int key = 0;
-    while(1) {
-        if(SDL_PollEvent(&event)) {
-            if(event.type == SDL_EVENT_QUIT) {
-                break;
-            }
-        }
-
-        SDL_RenderClear(renderer);
-        for(int y = 0; y < CHIP8_HEIGHT; y++) {
-            for(int x = 0; x < CHIP8_WIDTH; x++) {
-                SDL_Texture* texture = get_pixel(x, y, display) ? texture_on : texture_off;
-                SDL_FRect frect = {x * 10, y * 10, 10, 10};
-                SDL_RenderTexture(renderer, texture, NULL, &frect);
-            }
-        }
-        set_pixel(10, 10, display, key % 2);
-        key += 1;
-        SDL_RenderPresent(renderer);
-        SDL_Delay(50);
+    /* Read in chip8 ROM file */
+    char* filename = "roms/games/Cave.ch8";
+    int fd = open(filename, O_RDONLY);
+    if(fd == -1) {
+        printf("Read error\n");
+        return 1;
     }
+
+    /* IMPORTANT: BUFFER SHOULD BE UNSIGNED CHAR */
+    /* OTHERWISE, FACE SERIOUS OVERFLOW ISSUES */
+    unsigned short read_buf;
+    while(read(fd, &read_buf, 2) == 2) {
+        unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
+        printf("0x%04x\n", instruction);
+    }
+
+    // /* Main loop */
+    // SDL_Event event;
+    // int key = 0;
+    // while(1) {
+    //     if(SDL_PollEvent(&event)) {
+    //         if(event.type == SDL_EVENT_QUIT) {
+    //             break;
+    //         }
+    //     }
+
+    //     SDL_RenderClear(renderer);
+    //     for(int y = 0; y < CHIP8_HEIGHT; y++) {
+    //         for(int x = 0; x < CHIP8_WIDTH; x++) {
+    //             SDL_Texture* texture = get_pixel(x, y, display) ? texture_on : texture_off;
+    //             SDL_FRect frect = {x * 10, y * 10, 10, 10};
+    //             SDL_RenderTexture(renderer, texture, NULL, &frect);
+    //         }
+    //     }
+    //     set_pixel(10, 10, display, key % 2);
+    //     key += 1;
+    //     SDL_RenderPresent(renderer);
+    //     SDL_Delay(50);
+    // }
 
     /* Destroy window */
     SDL_DestroyTexture(texture_on);

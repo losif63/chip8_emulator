@@ -7,12 +7,13 @@ typedef struct {
     short int I;
 
     /* Special Purpose Registers */
-    char delay_timer;
-    char sound_timer;
+    unsigned char delay_timer;
+    unsigned char sound_timer;
 
-    short int PC;   /* program counter */
-    char SP;        /* stack pointer */
+    unsigned short int PC;   /* program counter */
+    unsigned char SP;        /* stack pointer */
 } chip8_register;
 
+chip8_register* init_chip8_register();
 
 #endif
