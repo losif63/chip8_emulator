@@ -9,13 +9,53 @@
 #include "register.h"
 #include "graphics.h"
 
-/* TODO: Need to use memory and stack in this function */
+char get_sdl_scancode(char Vx) {
+    switch (Vx) {
+        case 0x0:
+            return 39;
+        case 0x1:
+            return 30;
+        case 0x2:
+            return 31;
+        case 0x3:
+            return 32;
+        case 0x4:
+            return 33;
+        case 0x5:
+            return 34;
+        case 0x6:
+            return 35;
+        case 0x7:
+            return 36;
+        case 0x8:
+            return 37;
+        case 0x9:
+            return 38;
+        case 0xA:
+            return 4;
+        case 0xB:
+            return 5;
+        case 0xC:
+            return 6;
+        case 0xD:
+            return 7;
+        case 0xE:
+            return 8;
+        case 0xF:
+            return 9;
+        default:
+            fprintf(stderr, "Error while getting sdl code: 0x%02x", Vx);
+            abort();
+    }
+}
+
 void handle_instruction(
     unsigned short instruction,
     char* memory,
     chip8_register* registers,
     unsigned short* stack, 
-    unsigned char* display
+    unsigned char* display,
+    const bool* keys
 )
 {
     unsigned short digit1 = (instruction & 0xF000) >> 12;
@@ -26,7 +66,6 @@ void handle_instruction(
         case 0x00:
             if(instruction == 0x00E0) 
                 memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
-            /* TODO: This implementation is wrong */
             else if(instruction == 0x00EE)
                 registers->PC = stack[registers->SP--];
             else {
@@ -145,10 +184,43 @@ void handle_instruction(
             }
             break;
         }
-        case 0x0E:
+        case 0x0E: {
+            unsigned short x = (instruction & 0x0F00) >> 8;
+            if ((instruction & 0x00FF) == 0x9E) {
+                if (keys[get_sdl_scancode(registers->V[x])]) registers->PC += 2;
+            } 
+            else if ((instruction & 0xFF) == 0xA1) {
+                if (!keys[get_sdl_scancode(registers->V[x])]) registers->PC += 2;
+
+            }
+            else {
+                fprintf(stderr, "Error while decoding: Case E / Instruction: 0x%04x", instruction);
+                abort();
+            }
             break;
-        case 0x0F:
+        }
+        case 0x0F:{
+            unsigned short x = (instruction & 0x0F00) >> 8;
+            unsigned short nn = (instruction & 0x00FF);
+            switch (nn) {
+                case 0x07:
+                    registers->V[x] = registers->delay_timer;
+                /* TODO: Implement Poll */
+                case 0x0A:
+
+                case 0x15:
+                case 0x18:
+                case 0x1E:
+                case 0x29:
+                case 0x33:
+                case 0x55:
+                case 0x65:
+                default:
+                    fprintf(stderr, "Error while decoding: Case F / Instruction: 0x%04x", instruction);
+                    abort();
+            }
             break;
+        }
     }
 }
 
@@ -221,34 +293,59 @@ int main(int argc, char** argv)
     /* IMPORTANT: BUFFER SHOULD BE UNSIGNED CHAR */
     /* OTHERWISE, FACE SERIOUS OVERFLOW ISSUES */
     unsigned short read_buf;
-    while(read(fd, &read_buf, 2) == 2) {
-        unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
-        printf("0x%04x\n", instruction);
-    }
-
-    // /* Main loop */
-    // SDL_Event event;
-    // int key = 0;
-    // while(1) {
-    //     if(SDL_PollEvent(&event)) {
-    //         if(event.type == SDL_EVENT_QUIT) {
-    //             break;
-    //         }
-    //     }
-
-    //     SDL_RenderClear(renderer);
-    //     for(int y = 0; y < CHIP8_HEIGHT; y++) {
-    //         for(int x = 0; x < CHIP8_WIDTH; x++) {
-    //             SDL_Texture* texture = get_pixel(x, y, display) ? texture_on : texture_off;
-    //             SDL_FRect frect = {x * 10, y * 10, 10, 10};
-    //             SDL_RenderTexture(renderer, texture, NULL, &frect);
-    //         }
-    //     }
-    //     set_pixel(10, 10, display, key % 2);
-    //     key += 1;
-    //     SDL_RenderPresent(renderer);
-    //     SDL_Delay(50);
+    // while(read(fd, &read_buf, 2) == 2) {
+    //     unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
+    //     printf("0x%04x\n", instruction);
     // }
+
+    uint64_t frequency = SDL_GetPerformanceFrequency();
+    uint64_t cycle_duration = frequency / 500;      /* 500Hz clock speed */
+    uint64_t frame_duration = frequency / 60;       /* 60Hz frame display */
+
+    uint64_t next_cycle_time = SDL_GetPerformanceCounter();
+    uint64_t next_frame_time = next_cycle_time;
+    
+    /* Main loop */
+    SDL_Event event;
+    const bool* keys = SDL_GetKeyboardState(NULL);
+    while(read(fd, &read_buf, 2) == 2) {
+        if(SDL_PollEvent(&event)) {
+            if(event.type == SDL_EVENT_QUIT) {
+                break;
+            }
+        }
+
+        uint64_t current_time = SDL_GetPerformanceCounter();
+        unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
+
+        if (current_time > next_cycle_time) {
+            handle_instruction(instruction, memory, registers, stack, display, keys);
+            next_cycle_time += cycle_duration;
+        }
+
+        if (current_time > next_frame_time) {
+            SDL_RenderClear(renderer);
+            for(int y = 0; y < CHIP8_HEIGHT; y++) {
+                for(int x = 0; x < CHIP8_WIDTH; x++) {
+                    SDL_Texture* texture = get_pixel(x, y, display) ? texture_on : texture_off;
+                    SDL_FRect frect = {x * 10, y * 10, 10, 10};
+                    SDL_RenderTexture(renderer, texture, NULL, &frect);
+                }
+            }
+
+            SDL_RenderPresent(renderer);
+            next_frame_time += frame_duration;
+
+            /* Decrement delay & sound timer */
+            if (registers->delay_timer > 0) registers->delay_timer--;
+            if (registers->sound_timer > 0) {
+                /* TODO: Make beep sound */
+                registers->sound_timer--;
+            }
+        }
+
+        SDL_Delay(1);
+    }
 
     /* Destroy window */
     SDL_DestroyTexture(texture_on);
