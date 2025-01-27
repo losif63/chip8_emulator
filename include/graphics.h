@@ -6,7 +6,7 @@
 #define CHIP8_WIDTH 64
 #define CHIP8_HEIGHT 32
 
-void setup_graphics(char* memory);
+void setup_graphics(unsigned char* memory);
 
 int get_pixel(int x, int y, unsigned char* display);
 

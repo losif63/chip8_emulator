@@ -1,7 +1,7 @@
 #include "graphics.h"
 #include "SDL3/SDL_video.h"
 
-void setup_graphics(char* memory)
+void setup_graphics(unsigned char* memory)
 {
     /* Initialize sprites in interpreter memory */
     *(memory + SPRITE_ADDR(0) + 0) = 0xF0;          /* 11110000 */

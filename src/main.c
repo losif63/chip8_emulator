@@ -11,8 +11,6 @@
 
 char code_to_num(char code) {
     switch (code) {
-        case SDL_SCANCODE_0:
-            return 0;
         case SDL_SCANCODE_1:
             return 1;
         case SDL_SCANCODE_2:
@@ -20,31 +18,33 @@ char code_to_num(char code) {
         case SDL_SCANCODE_3:
             return 3;
         case SDL_SCANCODE_4:
-            return 4;
-        case SDL_SCANCODE_5:
-            return 5;
-        case SDL_SCANCODE_6:
-            return 6;
-        case SDL_SCANCODE_7:
-            return 7;
-        case SDL_SCANCODE_8:
-            return 8;
-        case SDL_SCANCODE_9:
-            return 9;
-        case SDL_SCANCODE_A:
-            return 0xA;
-        case SDL_SCANCODE_B:
-            return 0xB;
-        case SDL_SCANCODE_C:
             return 0xC;
-        case SDL_SCANCODE_D:
-            return 0xD;
+        case SDL_SCANCODE_Q:
+            return 4;
+        case SDL_SCANCODE_W:
+            return 5;
         case SDL_SCANCODE_E:
-            return 0xE;
+            return 6;
+        case SDL_SCANCODE_R:
+            return 0xD;
+        case SDL_SCANCODE_A:
+            return 7;
+        case SDL_SCANCODE_S:
+            return 8;
+        case SDL_SCANCODE_D:
+            return 9;
         case SDL_SCANCODE_F:
+            return 0xE;
+        case SDL_SCANCODE_Z:
+            return 0xA;
+        case SDL_SCANCODE_X:
+            return 0;
+        case SDL_SCANCODE_C:
+            return 0xB;
+        case SDL_SCANCODE_V:
             return 0xF;
         default:
-            fprintf(stderr, "Error while getting key num: 0x%02x", Vx);
+            fprintf(stderr, "Error while getting key num: 0x%02x", code);
             abort();
     }
 }
@@ -52,7 +52,7 @@ char code_to_num(char code) {
 char num_to_code(char Vx) {
     switch (Vx) {
         case 0x0:
-            return SDL_SCANCODE_0;
+            return SDL_SCANCODE_X;
         case 0x1:
             return SDL_SCANCODE_1;
         case 0x2:
@@ -60,29 +60,29 @@ char num_to_code(char Vx) {
         case 0x3:
             return SDL_SCANCODE_3;
         case 0x4:
-            return SDL_SCANCODE_4;
+            return SDL_SCANCODE_Q;
         case 0x5:
-            return SDL_SCANCODE_5;
+            return SDL_SCANCODE_W;
         case 0x6:
-            return SDL_SCANCODE_6;
-        case 0x7:
-            return SDL_SCANCODE_7;
-        case 0x8:
-            return SDL_SCANCODE_8;
-        case 0x9:
-            return SDL_SCANCODE_9;
-        case 0xA:
-            return SDL_SCANCODE_A;
-        case 0xB:
-            return SDL_SCANCODE_B;
-        case 0xC:
-            return SDL_SCANCODE_C;
-        case 0xD:
-            return SDL_SCANCODE_D;
-        case 0xE:
             return SDL_SCANCODE_E;
-        case 0xF:
+        case 0x7:
+            return SDL_SCANCODE_A;
+        case 0x8:
+            return SDL_SCANCODE_S;
+        case 0x9:
+            return SDL_SCANCODE_D;
+        case 0xA:
+            return SDL_SCANCODE_Z;
+        case 0xB:
+            return SDL_SCANCODE_C;
+        case 0xC:
+            return SDL_SCANCODE_4;
+        case 0xD:
+            return SDL_SCANCODE_R;
+        case 0xE:
             return SDL_SCANCODE_F;
+        case 0xF:
+            return SDL_SCANCODE_V;
         default:
             fprintf(stderr, "Error while getting sdl code: 0x%02x", Vx);
             abort();
@@ -91,7 +91,7 @@ char num_to_code(char Vx) {
 
 void handle_instruction(
     unsigned short instruction,
-    char* memory,
+    unsigned char* memory,
     chip8_register* registers,
     unsigned short* stack, 
     unsigned char* display,
@@ -99,15 +99,17 @@ void handle_instruction(
     SDL_Event* event
 )
 {
-    unsigned short digit1 = (instruction & 0xF000) >> 12;
-    unsigned short digit2 = (instruction & 0x0F00) >> 8;
-    unsigned short digit3 = (instruction & 0x00F0) >> 4;
-    unsigned short digit4 = (instruction & 0x000F);
+    uint16_t digit1 = (instruction & 0xF000) >> 12;
+    uint16_t x = (instruction & 0x0F00) >> 8;
+    uint16_t y = (instruction & 0x00F0) >> 4;
+    uint16_t n = instruction & 0x000F;
+    uint16_t nn = instruction & 0x00FF;
+    uint16_t nnn = instruction & 0x0FFF;
     switch(digit1) {
         case 0x00:
-            if(instruction == 0x00E0) 
+            if(nnn == 0x00E0) 
                 memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
-            else if(instruction == 0x00EE)
+            else if(nnn == 0x00EE)
                 registers->PC = stack[registers->SP--];
             else {
                 fprintf(stderr, "Error while decoding: Case 0 / Instruction: 0x%04x", instruction);
@@ -115,37 +117,35 @@ void handle_instruction(
             }
             break;
         case 0x01:
-            registers->PC = instruction & 0x0FFF;
+            registers->PC = nnn;
             break;
         case 0x02:
             stack[++registers->SP] = registers->PC;
-            registers->PC = instruction & 0x0FFF;
+            registers->PC = nnn;
             break;
         case 0x03:
-            if(registers->V[(instruction & 0x0F00) >> 8] == (instruction & 0x00FF))
+            if(registers->V[x] == nn)
                 registers->PC += 2;
             break;
         case 0x04:
-            if(registers->V[(instruction & 0x0F00) >> 8] != (instruction & 0x00FF))
+            if(registers->V[x] != nn)
                 registers->PC += 2;
             break;
         case 0x05:
-            if ((instruction & 0x000F) > 0) {
+            if (n > 0) {
                 fprintf(stderr, "Error while decoding: Case 5 / Instruction: 0x%04x", instruction);
                 abort();
             }
-            if(registers->V[(instruction & 0x0F00) >> 8] != registers->V[(instruction & 0x00F0) >> 4])
+            if(registers->V[x] != registers->V[y])
                 registers->PC += 2;
             break;
         case 0x06:
-            registers->V[(instruction & 0x0F00) >> 8] = (char)(instruction & 0x00FF);
+            registers->V[x] = (char)nn;
             break;
         case 0x07:
-            registers->V[(instruction & 0x0F00) >> 8] += (char)(instruction & 0x00FF);
+            registers->V[x] += (char)nn;
             break;
-        case 0x08: {
-            uint16_t x = (instruction & 0x0F00) >> 8;
-            uint16_t y = (instruction & 0x00F0) >> 4;
+        case 0x08:
             switch(instruction & 0x000F) {
                 case 0x00:
                     registers->V[x] = registers->V[y];
@@ -183,33 +183,24 @@ void handle_instruction(
                     break;
             }
             break;
-        }
-        case 0x09: {
+        case 0x09:
             if((instruction & 0x000F) > 0) {
                 fprintf(stderr, "Error while decoding: Case 9 / Instruction: 0x%04x", instruction);
                 abort();
             }
-            unsigned short x = (instruction & 0x0F00) >> 8;
-            unsigned short y = (instruction & 0x00F0) >> 4;
             if(registers->V[x] != registers->V[y])
                 registers->PC += 2;
             break;
-        }
         case 0x0A:
             registers->I = instruction & 0x0FFF;
             break;
         case 0x0B:
             registers->PC = (instruction & 0x0FFF) + registers->V[0];
             break;
-        case 0x0C: {
-            unsigned short x = (instruction & 0x0F00) >> 8;
+        case 0x0C:
             registers->V[x] = (char)(rand() % 256) & (instruction & 0x00FF);
             break;
-        }
-        case 0x0D: {
-            unsigned short x = (instruction & 0x0F00) >> 8;
-            unsigned short y = (instruction & 0x00F0) >> 4;
-            unsigned short n = (instruction & 0x000F);
+        case 0x0D: 
             registers->V[0xF] = 0;      // Reset collision flag
             for (int i = 0; i < n; i++) {
                 unsigned char cursor = memory[registers->I + i];
@@ -224,9 +215,7 @@ void handle_instruction(
                 }
             }
             break;
-        }
-        case 0x0E: {
-            unsigned short x = (instruction & 0x0F00) >> 8;
+        case 0x0E: 
             if ((instruction & 0x00FF) == 0x9E) {
                 if (keys[num_to_code(registers->V[x])]) registers->PC += 2;
             } 
@@ -239,10 +228,7 @@ void handle_instruction(
                 abort();
             }
             break;
-        }
-        case 0x0F:{
-            unsigned short x = (instruction & 0x0F00) >> 8;
-            unsigned short nn = (instruction & 0x00FF);
+        case 0x0F:
             switch (nn) {
                 case 0x07:
                     registers->V[x] = registers->delay_timer;
@@ -250,6 +236,7 @@ void handle_instruction(
                 case 0x0A:
                     if ((*event).type == SDL_EVENT_KEY_DOWN)
                         registers->V[x] = code_to_num(event->key.scancode);
+                    else registers->PC -= 2;
                     break;
                 case 0x15:
                     registers->delay_timer = registers->V[x];
@@ -283,7 +270,6 @@ void handle_instruction(
                     abort();
             }
             break;
-        }
     }
 }
 
@@ -295,7 +281,7 @@ int main(int argc, char** argv)
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS);
 
     /* Configure chip-8 components */
-    char* memory = (char*)malloc(4096);
+    unsigned char* memory = (unsigned char*)malloc(4096);
     chip8_register* registers = (chip8_register*)malloc(sizeof(chip8_register));
     unsigned short* stack = (unsigned short*)malloc(16 * sizeof(unsigned short));
 
@@ -304,6 +290,24 @@ int main(int argc, char** argv)
     memset(display, 0, CHIP8_WIDTH * CHIP8_HEIGHT / 8);
 
     setup_graphics(memory);
+
+    /* Read in chip8 ROM file */
+    char* filename = "roms/games/Cave.ch8";
+    int fd = open(filename, O_RDONLY);
+    if(fd == -1) {
+        printf("Read error\n");
+        return 1;
+    }
+
+    /* Load program in memory */
+    unsigned char* pointer = memory + 0x200;
+    unsigned char read_buf;
+    while(read(fd, &read_buf, 1) == 1) {
+        *(pointer++) = read_buf;
+    }
+    
+    /* PC point to start of program */
+    registers->PC = 0x0200;
 
     /* Create window */
     window = SDL_CreateWindow(
@@ -345,22 +349,6 @@ int main(int argc, char** argv)
     SDL_UpdateTexture(texture_on, NULL, on_buffer, 10 * sizeof(uint32_t));
     SDL_UpdateTexture(texture_off, NULL, off_buffer, 10 * sizeof(uint32_t));
 
-    /* Read in chip8 ROM file */
-    char* filename = "roms/games/Cave.ch8";
-    int fd = open(filename, O_RDONLY);
-    if(fd == -1) {
-        printf("Read error\n");
-        return 1;
-    }
-
-    /* IMPORTANT: BUFFER SHOULD BE UNSIGNED CHAR */
-    /* OTHERWISE, FACE SERIOUS OVERFLOW ISSUES */
-    unsigned short read_buf;
-    // while(read(fd, &read_buf, 2) == 2) {
-    //     unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
-    //     printf("0x%04x\n", instruction);
-    // }
-
     uint64_t frequency = SDL_GetPerformanceFrequency();
     uint64_t cycle_duration = frequency / 500;      /* 500Hz clock speed */
     uint64_t frame_duration = frequency / 60;       /* 60Hz frame display */
@@ -371,7 +359,7 @@ int main(int argc, char** argv)
     /* Main loop */
     SDL_Event event;
     const bool* keys = SDL_GetKeyboardState(NULL);
-    while(read(fd, &read_buf, 2) == 2) {
+    while(1) {
         if(SDL_PollEvent(&event)) {
             if(event.type == SDL_EVENT_QUIT) {
                 break;
@@ -379,7 +367,8 @@ int main(int argc, char** argv)
         }
 
         uint64_t current_time = SDL_GetPerformanceCounter();
-        unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
+        unsigned short instruction = ((unsigned short)memory[registers->PC] << 8) | memory[registers->PC + 1];
+        registers->PC += 2;
 
         if (current_time > next_cycle_time) {
             handle_instruction(instruction, memory, registers, stack, display, keys, &event);
