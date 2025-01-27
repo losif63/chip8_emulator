@@ -9,40 +9,80 @@
 #include "register.h"
 #include "graphics.h"
 
-char get_sdl_scancode(char Vx) {
+char code_to_num(char code) {
+    switch (code) {
+        case SDL_SCANCODE_0:
+            return 0;
+        case SDL_SCANCODE_1:
+            return 1;
+        case SDL_SCANCODE_2:
+            return 2;
+        case SDL_SCANCODE_3:
+            return 3;
+        case SDL_SCANCODE_4:
+            return 4;
+        case SDL_SCANCODE_5:
+            return 5;
+        case SDL_SCANCODE_6:
+            return 6;
+        case SDL_SCANCODE_7:
+            return 7;
+        case SDL_SCANCODE_8:
+            return 8;
+        case SDL_SCANCODE_9:
+            return 9;
+        case SDL_SCANCODE_A:
+            return 0xA;
+        case SDL_SCANCODE_B:
+            return 0xB;
+        case SDL_SCANCODE_C:
+            return 0xC;
+        case SDL_SCANCODE_D:
+            return 0xD;
+        case SDL_SCANCODE_E:
+            return 0xE;
+        case SDL_SCANCODE_F:
+            return 0xF;
+        default:
+            fprintf(stderr, "Error while getting key num: 0x%02x", Vx);
+            abort();
+    }
+}
+
+char num_to_code(char Vx) {
     switch (Vx) {
         case 0x0:
-            return 39;
+            return SDL_SCANCODE_0;
         case 0x1:
-            return 30;
+            return SDL_SCANCODE_1;
         case 0x2:
-            return 31;
+            return SDL_SCANCODE_2;
         case 0x3:
-            return 32;
+            return SDL_SCANCODE_3;
         case 0x4:
-            return 33;
+            return SDL_SCANCODE_4;
         case 0x5:
-            return 34;
+            return SDL_SCANCODE_5;
         case 0x6:
-            return 35;
+            return SDL_SCANCODE_6;
         case 0x7:
-            return 36;
+            return SDL_SCANCODE_7;
         case 0x8:
-            return 37;
+            return SDL_SCANCODE_8;
         case 0x9:
-            return 38;
+            return SDL_SCANCODE_9;
         case 0xA:
-            return 4;
+            return SDL_SCANCODE_A;
         case 0xB:
-            return 5;
+            return SDL_SCANCODE_B;
         case 0xC:
-            return 6;
+            return SDL_SCANCODE_C;
         case 0xD:
-            return 7;
+            return SDL_SCANCODE_D;
         case 0xE:
-            return 8;
+            return SDL_SCANCODE_E;
         case 0xF:
-            return 9;
+            return SDL_SCANCODE_F;
         default:
             fprintf(stderr, "Error while getting sdl code: 0x%02x", Vx);
             abort();
@@ -55,7 +95,8 @@ void handle_instruction(
     chip8_register* registers,
     unsigned short* stack, 
     unsigned char* display,
-    const bool* keys
+    const bool* keys,
+    SDL_Event* event
 )
 {
     unsigned short digit1 = (instruction & 0xF000) >> 12;
@@ -187,10 +228,10 @@ void handle_instruction(
         case 0x0E: {
             unsigned short x = (instruction & 0x0F00) >> 8;
             if ((instruction & 0x00FF) == 0x9E) {
-                if (keys[get_sdl_scancode(registers->V[x])]) registers->PC += 2;
+                if (keys[num_to_code(registers->V[x])]) registers->PC += 2;
             } 
             else if ((instruction & 0xFF) == 0xA1) {
-                if (!keys[get_sdl_scancode(registers->V[x])]) registers->PC += 2;
+                if (!keys[num_to_code(registers->V[x])]) registers->PC += 2;
 
             }
             else {
@@ -205,16 +246,38 @@ void handle_instruction(
             switch (nn) {
                 case 0x07:
                     registers->V[x] = registers->delay_timer;
-                /* TODO: Implement Poll */
+                    break;
                 case 0x0A:
-
+                    if ((*event).type == SDL_EVENT_KEY_DOWN)
+                        registers->V[x] = code_to_num(event->key.scancode);
+                    break;
                 case 0x15:
+                    registers->delay_timer = registers->V[x];
+                    break;
                 case 0x18:
+                    registers->sound_timer = registers->V[x];
+                    break;
                 case 0x1E:
+                    registers->I += registers->V[x];
+                    break;
                 case 0x29:
+                    registers->I = SPRITE_ADDR(registers->V[x]);
+                    break;
                 case 0x33:
-                case 0x55:
-                case 0x65:
+                    memory[registers->I] = registers->V[x] / 100;
+                    memory[registers->I + 1] = (registers->V[x] / 10) % 10;
+                    memory[registers->I + 2] = registers->V[x] % 10;
+                    break;
+                case 0x55: {
+                    for (int i = 0; i <= x; i++) 
+                        memory[registers->I + i] = registers->V[i];
+                    break;
+                }
+                case 0x65: {
+                    for (int i = 0; i <= x; i++) 
+                        registers->V[i] = memory[registers->I + i];
+                    break;
+                }
                 default:
                     fprintf(stderr, "Error while decoding: Case F / Instruction: 0x%04x", instruction);
                     abort();
@@ -319,7 +382,7 @@ int main(int argc, char** argv)
         unsigned short instruction = (read_buf << 8) | (read_buf >> 8);
 
         if (current_time > next_cycle_time) {
-            handle_instruction(instruction, memory, registers, stack, display, keys);
+            handle_instruction(instruction, memory, registers, stack, display, keys, &event);
             next_cycle_time += cycle_duration;
         }
 
