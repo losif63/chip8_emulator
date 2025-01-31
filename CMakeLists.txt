@@ -9,7 +9,7 @@ set(EXECUTABLE_NAME ${PROJECT_NAME})
 add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 # Add the executable
-add_executable(${EXECUTABLE_NAME} src/main.c src/graphics.c)
+add_executable(${EXECUTABLE_NAME} src/main.c src/graphics.c src/utils.c)
 
 # Include the header files
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)

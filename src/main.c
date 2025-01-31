@@ -8,86 +8,7 @@
 
 #include "register.h"
 #include "graphics.h"
-
-char code_to_num(char code) {
-    switch (code) {
-        case SDL_SCANCODE_1:
-            return 1;
-        case SDL_SCANCODE_2:
-            return 2;
-        case SDL_SCANCODE_3:
-            return 3;
-        case SDL_SCANCODE_4:
-            return 0xC;
-        case SDL_SCANCODE_Q:
-            return 4;
-        case SDL_SCANCODE_W:
-            return 5;
-        case SDL_SCANCODE_E:
-            return 6;
-        case SDL_SCANCODE_R:
-            return 0xD;
-        case SDL_SCANCODE_A:
-            return 7;
-        case SDL_SCANCODE_S:
-            return 8;
-        case SDL_SCANCODE_D:
-            return 9;
-        case SDL_SCANCODE_F:
-            return 0xE;
-        case SDL_SCANCODE_Z:
-            return 0xA;
-        case SDL_SCANCODE_X:
-            return 0;
-        case SDL_SCANCODE_C:
-            return 0xB;
-        case SDL_SCANCODE_V:
-            return 0xF;
-        default:
-            fprintf(stderr, "Error while getting key num: 0x%02x", code);
-            abort();
-    }
-}
-
-char num_to_code(char Vx) {
-    switch (Vx) {
-        case 0x0:
-            return SDL_SCANCODE_X;
-        case 0x1:
-            return SDL_SCANCODE_1;
-        case 0x2:
-            return SDL_SCANCODE_2;
-        case 0x3:
-            return SDL_SCANCODE_3;
-        case 0x4:
-            return SDL_SCANCODE_Q;
-        case 0x5:
-            return SDL_SCANCODE_W;
-        case 0x6:
-            return SDL_SCANCODE_E;
-        case 0x7:
-            return SDL_SCANCODE_A;
-        case 0x8:
-            return SDL_SCANCODE_S;
-        case 0x9:
-            return SDL_SCANCODE_D;
-        case 0xA:
-            return SDL_SCANCODE_Z;
-        case 0xB:
-            return SDL_SCANCODE_C;
-        case 0xC:
-            return SDL_SCANCODE_4;
-        case 0xD:
-            return SDL_SCANCODE_R;
-        case 0xE:
-            return SDL_SCANCODE_F;
-        case 0xF:
-            return SDL_SCANCODE_V;
-        default:
-            fprintf(stderr, "Error while getting sdl code: 0x%02x", Vx);
-            abort();
-    }
-}
+#include "utils.h"
 
 void handle_instruction(
     unsigned short instruction,
@@ -281,9 +202,9 @@ int main(int argc, char** argv)
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS);
 
     /* Configure chip-8 components */
-    unsigned char* memory = (unsigned char*)malloc(4096);
+    unsigned char* memory = (unsigned char*)malloc(CHIP8_MEMORY);
     chip8_register* registers = (chip8_register*)malloc(sizeof(chip8_register));
-    unsigned short* stack = (unsigned short*)malloc(16 * sizeof(unsigned short));
+    unsigned short* stack = (unsigned short*)malloc(CHIP8_STACK * sizeof(unsigned short));
 
     /* Display */
     unsigned char* display = (unsigned char*)malloc(CHIP8_WIDTH * CHIP8_HEIGHT / 8);
@@ -359,6 +280,7 @@ int main(int argc, char** argv)
     /* Main loop */
     SDL_Event event;
     const bool* keys = SDL_GetKeyboardState(NULL);
+    // dump_state(memory, registers, stack, display);
     while(1) {
         if(SDL_PollEvent(&event)) {
             if(event.type == SDL_EVENT_QUIT) {
@@ -367,12 +289,14 @@ int main(int argc, char** argv)
         }
 
         uint64_t current_time = SDL_GetPerformanceCounter();
-        unsigned short instruction = ((unsigned short)memory[registers->PC] << 8) | memory[registers->PC + 1];
-        registers->PC += 2;
 
         if (current_time > next_cycle_time) {
+            unsigned short instruction = ((unsigned short)memory[registers->PC] << 8) | memory[registers->PC + 1];
+            printf("0x%04x\n", instruction);
+            registers->PC += 2;
             handle_instruction(instruction, memory, registers, stack, display, keys, &event);
             next_cycle_time += cycle_duration;
+            // dump_state(memory, registers, stack, display);
         }
 
         if (current_time > next_frame_time) {
