@@ -105,7 +105,7 @@ int get_pixel(int x, int y, unsigned char* display)
 {
     int index = y * CHIP8_WIDTH + x;
     int shift = 7 - index % 8;
-    return display[index / 8] & (1 << shift);
+    return (display[index / 8] >> shift) & 1;
 }
 
 void set_pixel(int x, int y, unsigned char* display, int val)
