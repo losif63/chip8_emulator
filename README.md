@@ -10,6 +10,7 @@ The code has been primarily devloped & tested on MacOSX.
 ## TODO
 - [ ] Add sound support
 - [ ] Add installation code
+- [ ] Add instructions for how to load chip8 files
 - [ ] Test & add Linux support
 - [ ] Test & add Windows support
 
