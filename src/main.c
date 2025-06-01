@@ -132,7 +132,8 @@ void handle_instruction(
                     int display_pixel = get_pixel(pixel_x, pixel_y, display);
                     if (sprite_pixel && display_pixel)
                         registers->V[0xF] = 1;
-                    set_pixel(pixel_x, pixel_y, display, display_pixel ^ sprite_pixel);
+                    /* BUG ORIGIN */ /* INT BOOL CONVERSION IMPORTANT */
+                    set_pixel(pixel_x, pixel_y, display, ((bool)display_pixel) ^ sprite_pixel);
                 }
             }
             break;
@@ -200,6 +201,16 @@ int main(int argc, char** argv)
 
     /* Initialize SDL */
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS);
+
+    SDL_AudioDeviceID audio_id = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, NULL);
+    if (audio_id == 0) {
+        printf("Failed to open audio: %s\n", SDL_GetError());
+        return;
+    }
+    SDL_AudioSpec input = {0};
+    SDL_AudioSpec output = {0};
+    
+
 
     /* Configure chip-8 components */
     unsigned char* memory = (unsigned char*)malloc(CHIP8_MEMORY);
@@ -292,7 +303,6 @@ int main(int argc, char** argv)
 
         if (current_time > next_cycle_time) {
             unsigned short instruction = ((unsigned short)memory[registers->PC] << 8) | memory[registers->PC + 1];
-            printf("0x%04x\n", instruction);
             registers->PC += 2;
             handle_instruction(instruction, memory, registers, stack, display, keys, &event);
             next_cycle_time += cycle_duration;
@@ -322,6 +332,9 @@ int main(int argc, char** argv)
 
         SDL_Delay(1);
     }
+
+    /* Free Audio Device */
+    SDL_CloseAudioDevice(audio_id);
 
     /* Destroy window */
     SDL_DestroyTexture(texture_on);
