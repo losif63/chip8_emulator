@@ -10,7 +10,7 @@ The code has been primarily devloped & tested on MacOSX.
 ## TODO
 - [x] Add sound support
 - [ ] Add installation code
-- [ ] Add instructions for how to load chip8 files
+- [x] Add instructions for how to load chip8 files
 - [ ] Test & add Linux support
 - [ ] Test & add Windows support
 
@@ -24,5 +24,4 @@ cmake ..
 cmake --build .
 cd ..
 ./build/chip8
-```
 ```
