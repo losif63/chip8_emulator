@@ -11,6 +11,7 @@
 #include "SDL3/SDL_error.h"
 #include "graphics.h"
 #include "register.h"
+#include "tinyfiledialogs.h"
 #include "utils.h"
 
 #define SAMPLING_FREQUENCY 44100
@@ -260,7 +261,9 @@ int main(int argc, char **argv) {
   setup_graphics(memory);
 
   /* Read in chip8 ROM file */
-  char *filename = "roms/games/Cave.ch8";
+  // char *filename = "roms/games/Cave.ch8";
+  char *filename = tinyfd_openFileDialog("Open a file", "", 0, NULL, NULL, 0);
+  printf("Playing file: %s\n", filename);
   int fd = open(filename, O_RDONLY);
   if (fd == -1) {
     printf("Read error\n");
