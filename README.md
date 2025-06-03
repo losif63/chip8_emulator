@@ -8,7 +8,7 @@ The code has been primarily devloped & tested on MacOSX.
 - CMake (Build)
 
 ## TODO
-- [ ] Add sound support
+- [x] Add sound support
 - [ ] Add installation code
 - [ ] Add instructions for how to load chip8 files
 - [ ] Test & add Linux support
@@ -16,7 +16,13 @@ The code has been primarily devloped & tested on MacOSX.
 
 ## How to build
 
-Execute the following command to build the binary executable.
+Execute the following commands to build and run the binary executable.
 ```
-Cmake --build
+mkdir build
+cd build
+cmake ..
+cmake --build .
+cd ..
+./build/chip8
+```
 ```
