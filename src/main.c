@@ -1,21 +1,26 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "SDL3/SDL_audio.h"
-#include "SDL3/SDL_stdinc.h"
+#include "SDL3/SDL_error.h"
 #include "graphics.h"
 #include "register.h"
 #include "utils.h"
 
+#define SAMPLING_FREQUENCY 44100
+#define BEEP_FREQUENCY 440
+#define LOUDNESS 4000
+
 void handle_instruction(unsigned short instruction, unsigned char *memory,
                         chip8_register *registers, unsigned short *stack,
                         unsigned char *display, const bool *keys,
-                        SDL_Event *event) {
+                        SDL_AudioStream *stream, SDL_Event *event) {
   uint16_t digit1 = (instruction & 0xF000) >> 12;
   uint16_t x = (instruction & 0x0F00) >> 8;
   uint16_t y = (instruction & 0x00F0) >> 4;
@@ -198,6 +203,20 @@ void handle_instruction(unsigned short instruction, unsigned char *memory,
   }
 }
 
+void add_sinusoidal_audio(SDL_AudioStream *stream) {
+  /* Create 1000ms of 440Hz beep sound buffer */
+  short *sound_buffer = (short *)malloc(SAMPLING_FREQUENCY * sizeof(short));
+  for (int i = 0; i < SAMPLING_FREQUENCY; i++) {
+    float audio_value =
+        sin((float)(M_PI * i * BEEP_FREQUENCY) / (float)SAMPLING_FREQUENCY);
+    sound_buffer[i] = (short)(audio_value * LOUDNESS);
+  }
+
+  SDL_PutAudioStreamData(stream, sound_buffer,
+                         SAMPLING_FREQUENCY * sizeof(short));
+  free(sound_buffer);
+}
+
 int main(int argc, char **argv) {
   SDL_Window *window;
 
@@ -210,13 +229,22 @@ int main(int argc, char **argv) {
     printf("Failed to open audio: %s\n", SDL_GetError());
     return 1;
   }
-  SDL_AudioSpec src_spec = {SDL_AUDIO_S16, 2, 44100};
-  SDL_AudioSpec dst_spec = {SDL_AUDIO_S16, 2, 44100};
+
+  /* Create main audio stream */
+  SDL_AudioSpec src_spec = {SDL_AUDIO_S16, 2, SAMPLING_FREQUENCY};
+  SDL_AudioSpec dst_spec = {SDL_AUDIO_S16, 2, SAMPLING_FREQUENCY};
   SDL_AudioStream *stream = SDL_CreateAudioStream(&src_spec, &dst_spec);
   if (!SDL_BindAudioStream(audio_id, stream)) {
     printf("Failed to bind audio: %s\n", SDL_GetError());
     return 1;
   }
+
+  /* Pause audio device before beginning */
+  if (!SDL_PauseAudioStreamDevice(stream)) {
+    printf("Failed to pause audio device: %s\n", SDL_GetError());
+  }
+
+  add_sinusoidal_audio(stream);
 
   /* Configure chip-8 components */
   unsigned char *memory = (unsigned char *)malloc(CHIP8_MEMORY);
@@ -293,6 +321,11 @@ int main(int argc, char **argv) {
       }
     }
 
+    int audio_left = SDL_GetAudioStreamAvailable(stream);
+    if (audio_left < SAMPLING_FREQUENCY / 10) {
+      add_sinusoidal_audio(stream);
+    }
+
     uint64_t current_time = SDL_GetPerformanceCounter();
 
     if (current_time > next_cycle_time) {
@@ -301,7 +334,7 @@ int main(int argc, char **argv) {
           memory[registers->PC + 1];
       registers->PC += 2;
       handle_instruction(instruction, memory, registers, stack, display, keys,
-                         &event);
+                         stream, &event);
       next_cycle_time += cycle_duration;
       // dump_state(memory, registers, stack, display);
     }
@@ -324,13 +357,21 @@ int main(int argc, char **argv) {
       if (registers->delay_timer > 0)
         registers->delay_timer--;
       if (registers->sound_timer > 0) {
-        /* TODO: Make beep sound */
+        SDL_ResumeAudioStreamDevice(stream);
         registers->sound_timer--;
+      } else {
+        SDL_PauseAudioStreamDevice(stream);
       }
     }
 
     SDL_Delay(1);
   }
+
+  /* Unbind audio stream */
+  SDL_UnbindAudioStream(stream);
+
+  /* Destroy audio stream */
+  SDL_DestroyAudioStream(stream);
 
   /* Free Audio Device */
   SDL_CloseAudioDevice(audio_id);
